@@ -1,0 +1,116 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+
+
+model User {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  role         String    @default("USER")
+  attempts     Attempt[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Exam {
+  id              String     @id @default(cuid())
+  level           String
+  title           String
+  description     String?
+  durationMinutes Int
+  passingScore    Int        @default(90)
+  minSectionScore Int        @default(19)
+  published       Boolean    @default(false)
+  sections        Section[]
+  attempts        Attempt[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+}
+
+model Section {
+  id          String      @id @default(cuid())
+  examId      String
+  exam        Exam        @relation(fields: [examId], references: [id], onDelete: Cascade)
+  type        String
+  title       String
+  instruction String?
+  order       Int
+  weight      Int         @default(1)
+  audioUrl    String?
+  questions   Question[]
+
+  @@unique([examId, order])
+}
+
+model Question {
+  id          String          @id @default(cuid())
+  sectionId   String
+  section     Section         @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  content     String
+  explanation String?
+  order       Int
+  audioUrl    String?
+  choices     Choice[]
+  answers     AttemptAnswer[]
+
+  @@unique([sectionId, order])
+}
+
+model Choice {
+  id               String          @id @default(cuid())
+  questionId       String
+  question         Question        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  label            String
+  text             String
+  isCorrect        Boolean         @default(false)
+  selectedByAnswer AttemptAnswer[] @relation("SelectedChoice")
+
+  @@unique([questionId, label])
+}
+
+model Attempt {
+  id             String          @id @default(cuid())
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examId         String
+  exam           Exam            @relation(fields: [examId], references: [id], onDelete: Cascade)
+  totalQuestions Int
+  totalCorrect   Int
+  estimatedScore Int
+  languageScore  Int
+  readingScore   Int
+  listeningScore Int
+  passed         Boolean         @default(false)
+  breakdown      String?
+  startedAt      DateTime
+  submittedAt    DateTime        @default(now())
+  answers        AttemptAnswer[]
+
+  @@index([userId, submittedAt])
+}
+
+model AttemptAnswer {
+  id               String   @id @default(cuid())
+  attemptId        String
+  attempt          Attempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  questionId       String
+  question         Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedChoiceId String?
+  selectedChoice   Choice?  @relation("SelectedChoice", fields: [selectedChoiceId], references: [id], onDelete: SetNull)
+  isCorrect        Boolean  @default(false)
+
+  @@unique([attemptId, questionId])
+}
